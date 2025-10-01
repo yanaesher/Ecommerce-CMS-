@@ -19,7 +19,7 @@ model User {
    password  String?
    name      String    @default("Not specified")
    picture   String    @default("/uploads/no-user-image.png")
-   store     Store[]
+   stores    Store[]
    reviews   Review[]
    favorites Product[]
    orders    Order[]
