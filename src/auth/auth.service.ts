@@ -1,12 +1,17 @@
 import {
 	BadRequestException,
 	Injectable,
-	NotFoundException
+	NotFoundException,
+	UnauthorizedException
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { UserService } from 'src/user/user.service'
 import { AuthDto } from './dto/auth.dto'
+
+interface JwtPayload {
+	id: string
+}
 
 @Injectable()
 export class AuthService {
@@ -30,6 +35,16 @@ export class AuthService {
 		if (oldUser) throw new BadRequestException('User exists')
 
 		const user = await this.userService.create(dto)
+		const tokens = this.issueTokens(user.id)
+		return { user, ...tokens }
+	}
+
+	async getNewTokens(refreshToken: string) {
+		const result = await this.jwt.verifyAsync<JwtPayload>(refreshToken)
+
+		if (!result) throw new UnauthorizedException('Invalid refresh Token')
+
+		const user = await this.userService.getById(result.id)
 		const tokens = this.issueTokens(user.id)
 		return { user, ...tokens }
 	}
