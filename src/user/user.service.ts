@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { User } from '@prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { hash } from 'argon2'
+import { AuthDto } from 'src/auth/dto/auth.dto'
 
 @Injectable()
 export class UserService {
@@ -24,19 +25,15 @@ export class UserService {
 		return user
 	}
 
-	async getByEmail(email: string): Promise<User> {
+	async getByEmail(email: string): Promise<User | null> {
 		const user = await this.prisma.user.findUnique({
-			where: {
-				email
-			},
+			where: { email },
 			include: {
 				stores: true,
 				favorites: true,
 				orders: true
 			}
 		})
-
-		if (!user) throw new NotFoundException(`User with email ${email} not found`)
 
 		return user
 	}
@@ -48,7 +45,7 @@ export class UserService {
 			data: {
 				name,
 				email,
-				hashedPassword
+				password: hashedPassword
 			}
 		})
 	}
