@@ -29,7 +29,7 @@ export class AuthService {
 
 		if (oldUser) throw new BadRequestException('User exists')
 
-		const user = await this.validateUser(dto)
+		const user = await this.userService.create(dto)
 		const tokens = this.issueTokens(user.id)
 		return { user, ...tokens }
 	}
