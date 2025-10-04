@@ -10,9 +10,20 @@ import { UserService } from 'src/user/user.service'
 import { AuthDto } from './dto/auth.dto'
 import { Response } from 'express'
 import { ConfigService } from '@nestjs/config'
+import { User } from '@prisma/client'
 
 interface JwtPayload {
 	id: string
+}
+
+interface OAuthUser {
+	email: string
+	name: string
+	picture?: string
+}
+
+interface AuthenticatedRequest {
+	user: OAuthUser
 }
 
 @Injectable()
@@ -26,14 +37,18 @@ export class AuthService {
 		private configService: ConfigService
 	) {}
 
-	async login(dto: AuthDto) {
+	async login(
+		dto: AuthDto
+	): Promise<{ user: User; accessToken: string; refreshToken: string }> {
 		const user = await this.validateUser(dto)
 		const tokens = this.issueTokens(user.id)
 
 		return { user, ...tokens }
 	}
 
-	async register(dto: AuthDto) {
+	async register(
+		dto: AuthDto
+	): Promise<{ user: User; accessToken: string; refreshToken: string }> {
 		const { email } = dto
 		const oldUser = await this.userService.getByEmail(email)
 
@@ -44,7 +59,9 @@ export class AuthService {
 		return { user, ...tokens }
 	}
 
-	async getNewTokens(refreshToken: string) {
+	async getNewTokens(
+		refreshToken: string
+	): Promise<{ user: User; accessToken: string; refreshToken: string }> {
 		const result = await this.jwt.verifyAsync<JwtPayload>(refreshToken)
 
 		if (!result) throw new UnauthorizedException('Invalid refresh Token')
@@ -54,7 +71,7 @@ export class AuthService {
 		return { user, ...tokens }
 	}
 
-	issueTokens(userId: string) {
+	issueTokens(userId: string): { accessToken: string; refreshToken: string } {
 		const payload = { id: userId }
 
 		const accessToken = this.jwt.sign(payload, {
@@ -67,10 +84,31 @@ export class AuthService {
 		return { accessToken, refreshToken }
 	}
 
-	private async validateUser(dto: AuthDto) {
+	async validateUser(dto: AuthDto): Promise<User> {
 		const { email } = dto
 		const user = await this.userService.getByEmail(email)
 		if (!user) throw new NotFoundException(`User not found`)
+
+		return user
+	}
+
+	async validateOAuthLogin(req: AuthenticatedRequest): Promise<User> {
+		let user = await this.userService.getByEmail(req.user.email)
+
+		if (!user) {
+			user = await this.prisma.user.create({
+				data: {
+					email: req.user.email,
+					name: req.user.name,
+					picture: req.user.picture || '/uploads/no-user-image.png'
+				},
+				include: {
+					stores: true,
+					favorites: true,
+					orders: true
+				}
+			})
+		}
 
 		return user
 	}
